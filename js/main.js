@@ -12,11 +12,12 @@ game.init(canvas);
 
 let lastTime = performance.now();
 
-function loop(timestamp){
-    const dt = (timestamp - lastTime)/1000; // delta time in seconds
+function loop(timestamp) {
+    const dt = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
 
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "#87CEEB"; // clear background
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     game.update(dt);
     game.draw();
