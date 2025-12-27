@@ -5,8 +5,8 @@ class Paddle {
         this.skill = skill;
 
         this.pos = { x, y };
-        this.width = 48;
-        this.height = 16;
+        this.width = 16;
+        this.height = 48;
 
         this.swingSpeed = 0;
         this.target = null;
@@ -14,25 +14,24 @@ class Paddle {
 
     update(dt) {
         if (this.isAI && this.target) {
-            const error = (Math.random() - 0.5) * (1 - this.skill) * 80;
-            const targetX = this.target.pos.x + error;
+            const error = (Math.random() - 0.5) * (1 - this.skill) * 60;
+            const targetY = this.target.pos.y + error;
 
-            this.swingSpeed = (targetX - this.pos.x) * 0.05 * this.skill;
-            this.pos.x += this.swingSpeed;
+            this.swingSpeed = (targetY - this.pos.y) * 0.15 * this.skill;
+            this.pos.y += this.swingSpeed;
         } else {
-            // Player mouse control
-            window.addEventListener("mousemove", e => {
+            window.onmousemove = e => {
                 const rect = document.body.getBoundingClientRect();
-                this.pos.x = e.clientX - rect.left;
-            });
+                this.pos.y = e.clientY - rect.top;
+            };
         }
     }
 
     draw(ctx) {
         ctx.drawImage(
             this.sprite,
-            this.pos.x - this.width / 2,
-            this.pos.y - this.height / 2,
+            Math.round(this.pos.x - this.width / 2),
+            Math.round(this.pos.y - this.height / 2),
             this.width,
             this.height
         );
