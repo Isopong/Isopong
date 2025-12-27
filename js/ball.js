@@ -6,105 +6,132 @@ class Ball {
 
         // Position
         this.pos = { x, y };
-        this.z = 12; // start slightly above table
+        this.z = 14;
 
         // Velocity
         this.vel = { x: 7, y: 0 };
         this.zVel = 6;
 
-        // Spin (radians/sec-ish, abstract units)
+        // Spin
         this.spin = {
-            x: 0, // sidespin
-            y: 0  // topspin / backspin
+            side: 0,
+            top: 0
         };
 
         this.radius = 8;
 
-        // Physics constants (tuned for ping pong)
-        this.gravity = 38;
-        this.airDrag = 0.995;
-        this.spinInfluence = 0.015;
-        this.bounceDamping = 0.88;
-        this.spinBounceTransfer = 0.35;
+        // Physics tuning
+        this.gravity = 40;
+        this.airDrag = 0.994;
+        this.magnus = 0.018;
+        this.bounceLoss = 0.82;
+        this.spinFriction = 0.65;
+
+        // Net
+        this.netX = (bounds.left + bounds.right) / 2;
+        this.netHeight = 12;
+    }
+
+    isOverTable() {
+        return (
+            this.pos.x > this.bounds.left &&
+            this.pos.x < this.bounds.right &&
+            this.pos.y > this.bounds.top &&
+            this.pos.y < this.bounds.bottom
+        );
     }
 
     update(dt) {
-        /* -------- AIR PHYSICS -------- */
+        /* ---------- AIR PHYSICS ---------- */
 
-        // Magnus effect (spin causes curve)
-        this.vel.x += this.spin.x * this.spinInfluence;
-        this.vel.y -= this.spin.y * this.spinInfluence;
+        // Magnus effect
+        this.vel.y += this.spin.side * this.magnus;
+        this.vel.x -= this.spin.top * this.magnus * 0.4;
 
         // Drag
         this.vel.x *= this.airDrag;
         this.vel.y *= this.airDrag;
 
-        // Apply horizontal motion
         this.pos.x += this.vel.x;
         this.pos.y += this.vel.y;
 
-        /* -------- VERTICAL PHYSICS -------- */
+        /* ---------- VERTICAL PHYSICS ---------- */
 
         this.zVel -= this.gravity * dt;
         this.z += this.zVel;
 
-        // Bounce off table
-        if (this.z <= 0) {
+        // Bounce ONLY if above table
+        if (this.z <= 0 && this.isOverTable()) {
             this.z = 0;
+            this.zVel = -this.zVel * this.bounceLoss;
 
-            // Bounce response
-            this.zVel = -this.zVel * this.bounceDamping;
+            // Spin interaction with table
+            this.vel.x += this.spin.top * 0.25;
+            this.vel.y += this.spin.side * 0.3;
 
-            // Spin ↔ velocity transfer on bounce
-            this.vel.x += this.spin.x * this.spinBounceTransfer;
-            this.vel.y -= this.spin.y * this.spinBounceTransfer;
+            this.spin.top *= this.spinFriction;
+            this.spin.side *= this.spinFriction;
 
-            // Friction reduces spin
-            this.spin.x *= 0.7;
-            this.spin.y *= 0.7;
-
-            // Kill tiny bounces
-            if (Math.abs(this.zVel) < 1.5) {
-                this.zVel = 0;
-            }
+            if (Math.abs(this.zVel) < 1.2) this.zVel = 0;
         }
 
-        /* -------- TABLE EDGE COLLISIONS -------- */
+        // Ball falls off table → no more bounce
+        if (!this.isOverTable() && this.z <= 0) {
+            this.zVel = -8;
+        }
+
+        /* ---------- NET COLLISION ---------- */
+
+        const crossingNet =
+            Math.abs(this.pos.x - this.netX) < 2 &&
+            this.z < this.netHeight;
+
+        if (crossingNet) {
+            // Soft tape roll
+            this.vel.x *= -0.4;
+            this.zVel = Math.max(this.zVel, 2);
+            this.spin.top *= 0.5;
+        }
+
+        /* ---------- TABLE EDGES ---------- */
 
         if (this.pos.y < this.bounds.top || this.pos.y > this.bounds.bottom) {
             this.vel.y *= -0.9;
-            this.spin.x *= -0.6;
+            this.spin.side *= -0.6;
         }
     }
 
     hitByPaddle(paddle) {
         const dx = Math.abs(this.pos.x - paddle.pos.x);
-        const dy = Math.abs(this.pos.y - paddle.pos.y);
+        const dy = this.pos.y - paddle.pos.y;
 
         if (
             dx < this.radius + paddle.width / 2 &&
-            dy < paddle.height / 2 &&
-            this.z < 14
+            Math.abs(dy) < paddle.height / 2 &&
+            this.z < 16
         ) {
             const dir = paddle.isAI ? -1 : 1;
 
-            // Core hit impulse
-            this.vel.x = dir * (8 + Math.abs(paddle.swingSpeed) * 0.6);
-            this.vel.y += paddle.swingSpeed * 0.35;
+            // Horizontal impulse
+            this.vel.x = dir * (9 + Math.abs(paddle.swingSpeed) * 0.7);
+
+            // Aim based on contact point
+            this.vel.y += dy * 0.08;
 
             // Lift
-            this.zVel = 6 + Math.abs(paddle.swingSpeed) * 0.4;
+            this.zVel = 6 + Math.abs(dy) * 0.05;
 
-            // Spin generation
-            this.spin.y += paddle.swingSpeed * 0.08; // topspin/backspin
-            this.spin.x += (this.pos.y - paddle.pos.y) * 0.002; // sidespin
+            // Spin from brushing
+            this.spin.top += paddle.swingSpeed * 0.09;
+            this.spin.side += dy * 0.01;
         }
     }
 
     draw(ctx) {
-        /* -------- SHADOW -------- */
+        /* ---------- SHADOW ---------- */
 
-        const shadowScale = Math.max(0.4, 1 - this.z / 40);
+        // Shadow grows with height (correct)
+        const shadowScale = Math.min(1.4, 0.6 + this.z / 25);
 
         ctx.globalAlpha = 0.35;
         ctx.drawImage(
@@ -116,7 +143,7 @@ class Ball {
         );
         ctx.globalAlpha = 1;
 
-        /* -------- BALL -------- */
+        /* ---------- BALL ---------- */
 
         ctx.drawImage(
             this.sprite,
