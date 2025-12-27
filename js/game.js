@@ -1,149 +1,128 @@
-class Game {
-    constructor(ctx, canvas) {
-        this.ctx = ctx;
-        this.canvas = canvas;
+// game.js
+import { Ball } from "./ball.js";
+import { Paddle } from "./paddle.js";
+import { Camera } from "./camera.js";
 
-        // Images
-        this.tableImg = new Image();
-        this.tableImg.src = 'assets/sprites/table.png';
+export class Game {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
 
-        this.ballImg = new Image();
-        this.ballImg.src = 'assets/sprites/ball.png';
+    // 🔒 Pixel-perfect rendering
+    this.ctx.imageSmoothingEnabled = false;
 
-        this.shadowImg = new Image();
-        this.shadowImg.src = 'assets/sprites/shadow.png';
+    this.width = canvas.width;
+    this.height = canvas.height;
 
-        this.paddleImg = new Image();
-        this.paddleImg.src = 'assets/sprites/paddle.png';
+    // =============================
+    // TABLE DEFINITIONS
+    // =============================
 
-        // Table bounds (playable surface)
-        this.bounds = {
-            left: 140,
-            right: canvas.width - 140,
-            top: 90,
-            bottom: canvas.height - 90
-        };
+    // Actual playable table surface (NOT full image)
+    this.table = {
+      x: 160,
+      y: 120,
+      width: 480,
+      height: 240,
+      surfaceY: 260 // vertical screen position of table surface
+    };
 
-        // Net
-        this.net = {
-            x: (this.bounds.left + this.bounds.right) / 2,
-            height: 12
-        };
+    this.netZ = 0.5; // normalized depth midpoint
 
-        // Game objects (created in init)
-        this.ball = null;
-        this.player = null;
-        this.ai = null;
-        this.camera = null;
+    // =============================
+    // ASSETS
+    // =============================
+
+    this.tableImg = new Image();
+    this.tableImg.src = "assets/sprites/table.png";
+
+    // =============================
+    // GAME OBJECTS
+    // =============================
+
+    this.ball = new Ball(this.table);
+    this.leftPaddle = new Paddle("left", this.table);
+    this.rightPaddle = new Paddle("right", this.table);
+
+    this.camera = new Camera(this.table);
+
+    // =============================
+    // TIME
+    // =============================
+
+    this.lastTime = performance.now();
+  }
+
+  update(dt) {
+    this.leftPaddle.update(dt);
+    this.rightPaddle.update(dt);
+
+    this.ball.update(dt);
+
+    // ---------- PADDLE COLLISIONS ----------
+    this.ball.checkPaddleCollision(this.leftPaddle);
+    this.ball.checkPaddleCollision(this.rightPaddle);
+
+    // ---------- NET COLLISION ----------
+    if (
+      this.ball.z > this.netZ - 0.01 &&
+      this.ball.z < this.netZ + 0.01 &&
+      this.ball.y < this.table.surfaceY + 8
+    ) {
+      this.ball.vz *= -0.3;
+      this.ball.vy *= 0.6;
     }
 
-    init() {
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
-
-        // Ball
-        this.ball = new Ball(
-            cx,
-            cy,
-            this.ballImg,
-            this.shadowImg,
-            this.bounds
-        );
-
-        // Paddles
-        this.player = new Paddle(
-            this.bounds.left,
-            cy,
-            this.paddleImg,
-            false
-        );
-
-        this.ai = new Paddle(
-            this.bounds.right,
-            cy,
-            this.paddleImg,
-            true,
-            0.85
-        );
-        this.ai.target = this.ball;
-
-        // Camera
-        this.camera = new Camera(this.canvas);
-        this.camera.target = this.ball;
+    // ---------- TABLE BOUNDS ----------
+    if (!this.isBallOverTable()) {
+      this.ball.leaveTable();
     }
 
-    update(dt) {
-        this.ball.update(dt);
+    this.camera.update(this.ball);
+  }
 
-        this.player.update(dt);
-        this.ai.update(dt);
+  isBallOverTable() {
+    return (
+      this.ball.x > this.table.x &&
+      this.ball.x < this.table.x + this.table.width &&
+      this.ball.z >= 0 &&
+      this.ball.z <= 1
+    );
+  }
 
-        // Paddle collisions
-        this.ball.hitByPaddle(this.player);
-        this.ball.hitByPaddle(this.ai);
+  draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.width, this.height);
 
-        // Camera update (subtle horizontal pan)
-        this.camera.update();
+    this.camera.apply(ctx);
 
-        // Reset if ball fully leaves play area
-        if (
-            this.ball.pos.x < this.bounds.left - 120 ||
-            this.ball.pos.x > this.bounds.right + 120 ||
-            this.ball.pos.y < this.bounds.top - 120 ||
-            this.ball.pos.y > this.bounds.bottom + 120
-        ) {
-            this.resetBall();
-        }
+    // Draw table
+    ctx.drawImage(
+      this.tableImg,
+      this.table.x,
+      this.table.y
+    );
+
+    // Draw shadow ONLY if over table
+    if (this.isBallOverTable()) {
+      this.ball.drawShadow(ctx);
     }
 
-    resetBall() {
-        const cx = this.canvas.width / 2;
-        const cy = this.canvas.height / 2;
+    this.leftPaddle.draw(ctx);
+    this.rightPaddle.draw(ctx);
+    this.ball.draw(ctx);
 
-        this.ball.pos.x = cx;
-        this.ball.pos.y = cy;
-        this.ball.z = 14;
+    this.camera.reset(ctx);
+  }
 
-        this.ball.vel.x = Math.random() > 0.5 ? 7 : -7;
-        this.ball.vel.y = 0;
+  loop() {
+    const now = performance.now();
+    const dt = Math.min((now - this.lastTime) / 1000, 0.016);
+    this.lastTime = now;
 
-        this.ball.zVel = 6;
-        this.ball.spin.side = 0;
-        this.ball.spin.top = 0;
-    }
+    this.update(dt);
+    this.draw();
 
-    draw() {
-        const ctx = this.ctx;
-        ctx.save();
-
-        // Camera transform
-        this.camera.apply(ctx);
-
-        // Draw table
-        ctx.drawImage(
-            this.tableImg,
-            this.bounds.left,
-            this.bounds.top,
-            this.bounds.right - this.bounds.left,
-            this.bounds.bottom - this.bounds.top
-        );
-
-        // Draw net (visual only — physics handled in Ball)
-        ctx.fillStyle = 'rgba(255,255,255,0.65)';
-        ctx.fillRect(
-            this.net.x - 1,
-            this.bounds.top,
-            2,
-            this.bounds.bottom - this.bounds.top
-        );
-
-        // Draw paddles
-        this.player.draw(ctx);
-        this.ai.draw(ctx);
-
-        // Draw ball + shadow
-        this.ball.draw(ctx);
-
-        ctx.restore();
-    }
+    requestAnimationFrame(() => this.loop());
+  }
 }
