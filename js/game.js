@@ -1,54 +1,61 @@
 class Game {
-  constructor(canvas) {
-    this.ctx = canvas.getContext("2d");
-    this.camera = new Camera();
+    constructor(canvas) {
+        this.ctx = canvas.getContext("2d");
+        this.camera = new Camera();
 
-    this.ball = new Ball();
-    this.leftPaddle = new Paddle(120);
-    this.rightPaddle = new Paddle(840);
+        // Table image
+        this.table = new Image();
+        this.table.src = "assets/sprites/table.png";
 
-    this.lastTime = 0;
+        // Paddles
+        this.leftPaddle = new Paddle(120, false);    // player
+        this.rightPaddle = new Paddle(840, true);    // AI
 
-    this.keys = {};
-    window.addEventListener("keydown", e => this.keys[e.key] = true);
-    window.addEventListener("keyup", e => this.keys[e.key] = false);
+        // Ball
+        this.ball = new Ball();
 
-    this.table = new Image();
-    this.table.src = "assets/sprites/table.png";
-  }
+        this.lastTime = 0;
+        this.keys = {};
 
-  start() {
-    requestAnimationFrame(this.loop.bind(this));
-  }
+        // Input
+        window.addEventListener("keydown", e => this.keys[e.key] = true);
+        window.addEventListener("keyup", e => this.keys[e.key] = false);
+    }
 
-  loop(time) {
-    const dt = (time - this.lastTime) / 1000 || 0;
-    this.lastTime = time;
+    start() {
+        requestAnimationFrame(this.loop.bind(this));
+    }
 
-    this.update(dt);
-    this.draw();
+    loop(timestamp) {
+        const dt = (timestamp - this.lastTime) / 1000 || 0;
+        this.lastTime = timestamp;
 
-    requestAnimationFrame(this.loop.bind(this));
-  }
+        this.update(dt);
+        this.draw();
 
-  update(dt) {
-    this.ball.update(dt);
+        requestAnimationFrame(this.loop.bind(this));
+    }
 
-    this.leftPaddle.update(dt, this.keys["w"], this.keys["s"]);
-    this.rightPaddle.update(dt, this.keys["ArrowUp"], this.keys["ArrowDown"]);
-  }
+    update(dt) {
+        this.ball.update(this.keys, this.leftPaddle, this.rightPaddle);
 
-  draw() {
-    const ctx = this.ctx;
+        // Player input
+        this.leftPaddle.update(dt, this.ball, this.keys["w"], this.keys["s"]);
+        // AI paddle
+        this.rightPaddle.update(dt, this.ball);
+    }
 
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, 960, 540);
+    draw() {
+        const ctx = this.ctx;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, 960, 540);
 
-    // Table
-    ctx.drawImage(this.table, 160, 80, 640, 380);
+        // Draw table
+        ctx.drawImage(this.table, 160, 80, 640, 380);
 
-    this.ball.draw(ctx);
-    this.leftPaddle.draw(ctx);
-    this.rightPaddle.draw(ctx);
-  }
+        // Draw ball and paddles
+        this.ball.draw(ctx);
+        this.leftPaddle.draw(ctx);
+        this.rightPaddle.draw(ctx);
+    }
 }
