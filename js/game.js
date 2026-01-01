@@ -1,66 +1,54 @@
 class Game {
-    constructor(canvas) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext("2d");
+  constructor(canvas) {
+    this.ctx = canvas.getContext("2d");
+    this.camera = new Camera();
 
-        this.camera = new Camera();
+    this.ball = new Ball();
+    this.leftPaddle = new Paddle(120);
+    this.rightPaddle = new Paddle(840);
 
-        this.width = canvas.width;
-        this.height = canvas.height;
+    this.lastTime = 0;
 
-        // Table (surface only — no legs)
-        this.table = {
-            x: this.width / 2 - 200,
-            y: this.height / 2 - 100,
-            width: 400,
-            height: 200
-        };
+    this.keys = {};
+    window.addEventListener("keydown", e => this.keys[e.key] = true);
+    window.addEventListener("keyup", e => this.keys[e.key] = false);
 
-        this.ball = new Ball(this.table);
-        this.leftPaddle = new Paddle("left", this.table);
-        this.rightPaddle = new Paddle("right", this.table);
+    this.table = new Image();
+    this.table.src = "assets/sprites/table.png";
+  }
 
-        window.game = this; // debug / AI access
-    }
+  start() {
+    requestAnimationFrame(this.loop.bind(this));
+  }
 
-    update(dt) {
-        this.ball.update(dt, this.leftPaddle, this.rightPaddle);
-        this.leftPaddle.update(dt);
-        this.rightPaddle.update(dt);
-    }
+  loop(time) {
+    const dt = (time - this.lastTime) / 1000 || 0;
+    this.lastTime = time;
 
-    draw() {
-        const ctx = this.ctx;
+    this.update(dt);
+    this.draw();
 
-        // ✅ Reset camera safely
-        this.camera.reset(ctx);
+    requestAnimationFrame(this.loop.bind(this));
+  }
 
-        // Background
-        ctx.fillStyle = "#4aa3df";
-        ctx.fillRect(0, 0, this.width, this.height);
+  update(dt) {
+    this.ball.update(dt);
 
-        // Table surface
-        ctx.fillStyle = "#2ecc71";
-        ctx.fillRect(
-            this.table.x,
-            this.table.y,
-            this.table.width,
-            this.table.height
-        );
+    this.leftPaddle.update(dt, this.keys["w"], this.keys["s"]);
+    this.rightPaddle.update(dt, this.keys["ArrowUp"], this.keys["ArrowDown"]);
+  }
 
-        this.leftPaddle.draw(ctx);
-        this.rightPaddle.draw(ctx);
-        this.ball.draw(ctx);
-    }
+  draw() {
+    const ctx = this.ctx;
 
-    loop(timestamp) {
-        if (!this.lastTime) this.lastTime = timestamp;
-        const dt = (timestamp - this.lastTime) / 1000;
-        this.lastTime = timestamp;
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, 960, 540);
 
-        this.update(dt);
-        this.draw();
+    // Table
+    ctx.drawImage(this.table, 160, 80, 640, 380);
 
-        requestAnimationFrame(this.loop.bind(this));
-    }
+    this.ball.draw(ctx);
+    this.leftPaddle.draw(ctx);
+    this.rightPaddle.draw(ctx);
+  }
 }
