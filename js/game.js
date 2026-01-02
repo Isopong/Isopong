@@ -3,23 +3,17 @@ class Game {
         this.ctx = canvas.getContext("2d");
         this.camera = new Camera();
 
-        // Table image
+        // Table sprite
         this.table = new Image();
         this.table.src = "assets/sprites/table.png";
 
-        // Paddles
-        this.leftPaddle = new Paddle(120, false);    // player
-        this.rightPaddle = new Paddle(840, true);    // AI
+        // Player paddle controlled by mouse
+        this.paddle = new Paddle();
 
         // Ball
-        this.ball = new Ball();
+        this.ball = new Ball(this.paddle);
 
         this.lastTime = 0;
-        this.keys = {};
-
-        // Input
-        window.addEventListener("keydown", e => this.keys[e.key] = true);
-        window.addEventListener("keyup", e => this.keys[e.key] = false);
     }
 
     start() {
@@ -37,12 +31,8 @@ class Game {
     }
 
     update(dt) {
-        this.ball.update(this.keys, this.leftPaddle, this.rightPaddle);
-
-        // Player input
-        this.leftPaddle.update(dt, this.ball, this.keys["w"], this.keys["s"]);
-        // AI paddle
-        this.rightPaddle.update(dt, this.ball);
+        this.paddle.update(dt);
+        this.ball.update(dt, this.paddle);
     }
 
     draw() {
@@ -53,9 +43,8 @@ class Game {
         // Draw table
         ctx.drawImage(this.table, 160, 80, 640, 380);
 
-        // Draw ball and paddles
+        // Draw ball and paddle
         this.ball.draw(ctx);
-        this.leftPaddle.draw(ctx);
-        this.rightPaddle.draw(ctx);
+        this.paddle.draw(ctx);
     }
 }
