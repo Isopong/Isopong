@@ -1,52 +1,60 @@
 class Paddle {
-    constructor() {
-        this.x = 120; // starting position
-        this.y = 270;
-        this.width = 16;
-        this.height = 96;
+  constructor(canvas) {
+    this.canvas = canvas;
 
-        this.image = new Image();
-        this.image.src = "assets/sprites/paddle.png";
+    this.x = 300;
+    this.y = 270;
 
-        // For tracking mouse
-        this.targetX = this.x;
-        this.targetY = this.y;
+    this.prevX = this.x;
+    this.prevY = this.y;
 
-        // Listen to mouse move
-        window.addEventListener("mousemove", (e) => {
-            const rect = e.target.getBoundingClientRect();
-            this.targetX = e.clientX - rect.left;
-            this.targetY = e.clientY - rect.top;
-        });
-    }
+    this.vx = 0;
+    this.vy = 0;
 
-    update(dt) {
-        // Smoothly follow cursor
-        const speed = 1000; // pixels/sec
-        const dx = this.targetX - this.x;
-        const dy = this.targetY - this.y;
+    this.width = 16;
+    this.height = 96;
 
-        this.x += Math.max(Math.min(dx, speed * dt), -speed * dt);
-        this.y += Math.max(Math.min(dy, speed * dt), -speed * dt);
+    this.image = new Image();
+    this.image.src = "assets/sprites/paddle.png";
 
-        // Clamp to table bounds
-        const left = 160 + this.width / 2;
-        const right = 800 - this.width / 2;
-        const top = 80 + this.height / 2;
-        const bottom = 460 - this.height / 2;
+    this.mouseX = this.x;
+    this.mouseY = this.y;
 
-        this.x = Math.max(left, Math.min(right, this.x));
-        this.y = Math.max(top, Math.min(bottom, this.y));
-    }
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      this.mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+      this.mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+    });
+  }
 
-    draw(ctx) {
-        if (!this.image.complete) return;
-        ctx.drawImage(
-            this.image,
-            this.x - this.width / 2,
-            this.y - this.height / 2,
-            this.width,
-            this.height
-        );
-    }
+  update(dt) {
+    // Save previous position
+    this.prevX = this.x;
+    this.prevY = this.y;
+
+    // Paddle speed smoothing (so the paddle doesnt )
+    const smoothing = 0.35;
+    this.x += (this.mouseX - this.x) * smoothing;
+    this.y += (this.mouseY - this.y) * smoothing;
+
+    // Calculate paddle velocity
+    this.vx = (this.x - this.prevX) / dt;
+    this.vy = (this.y - this.prevY) / dt;
+
+    // Clamp to playable court. Set boundaries.
+    this.x = Math.max(80, Math.min(880, this.x));
+    this.y = Math.max(60, Math.min(500, this.y));
+  }
+
+  draw(ctx) {
+    if (!this.image.complete) return;
+
+    ctx.drawImage(
+      this.image,
+      this.x - this.width / 2,
+      this.y - this.height / 2,
+      this.width,
+      this.height
+    );
+  }
 }
