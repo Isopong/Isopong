@@ -1,80 +1,89 @@
 class Game {
   constructor(canvas) {
+    this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
 
-    // --- TABLE PHYSICS GEOMETRY ---
-    // Pixel-scaled real dimensions (tuned for 960x540)
+    this.width = canvas.width;
+    this.height = canvas.height;
+
+    this.isoSkew = 0.5;
+
+    // Table centered to canvas
+    const tableWidth = 360;
+    const tableHeight = 200;
+
     this.table = {
-      centerX: 480,
-      centerY: 300,
+      x: this.width / 2,
+      y: this.height / 2 + 40,
 
-      width: 520,    // corresponds to 2.74m
-      depth: 290,    // corresponds to 1.525m
+      left: this.width / 2 - tableWidth / 2,
+      right: this.width / 2 + tableWidth / 2,
+      top: this.height / 2 - tableHeight / 2,
+      bottom: this.height / 2 + tableHeight / 2,
 
-      isoSkew: 0.45  // isometric Y compression
+      isoSkew: this.isoSkew
     };
 
-    // Compute playable surface bounds (top-down space)
-    this.table.left   = this.table.centerX - this.table.width / 2;
-    this.table.right  = this.table.centerX + this.table.width / 2;
-    this.table.top    = this.table.centerY - this.table.depth / 2;
-    this.table.bottom = this.table.centerY + this.table.depth / 2;
+    // Paddle starts behind table
+    this.paddle = new Paddle(
+      this.table.left - 30,
+      this.table.y
+    );
 
-    this.paddle = new Paddle(canvas);
     this.ball = new Ball(this.paddle, this.table);
 
-    this.lastTime = 0;
+    this.mouse = { x: this.paddle.x, y: this.paddle.y };
 
-    window.addEventListener("keydown", (e) => {
+    canvas.addEventListener("mousemove", e => {
+      const rect = canvas.getBoundingClientRect();
+      this.mouse.x = e.clientX - rect.left;
+      this.mouse.y = e.clientY - rect.top;
+    });
+
+    window.addEventListener("keydown", e => {
       if (e.key.toLowerCase() === "s") {
         this.ball.serve();
       }
     });
+
+    this.lastTime = performance.now();
   }
 
-  start() {
-    requestAnimationFrame(this.loop.bind(this));
+  update(dt) {
+    this.paddle.update(this.mouse.x, this.mouse.y, dt);
+    this.ball.update(dt, this.paddle);
   }
 
-  loop(time) {
-    const dt = (time - this.lastTime) / 1000 || 0;
-    this.lastTime = time;
+  drawTable() {
+    const t = this.table;
+    const ctx = this.ctx;
+
+    ctx.fillStyle = "#2e8b57";
+    ctx.beginPath();
+    ctx.moveTo(t.left, t.top * this.isoSkew);
+    ctx.lineTo(t.right, t.top * this.isoSkew);
+    ctx.lineTo(t.right, t.bottom * this.isoSkew);
+    ctx.lineTo(t.left, t.bottom * this.isoSkew);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  draw() {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+
+    this.drawTable();
+    this.ball.draw(this.ctx);
+    this.paddle.draw(this.ctx, this.isoSkew);
+  }
+
+  loop = () => {
+    const now = performance.now();
+    const dt = (now - this.lastTime) / 1000;
+    this.lastTime = now;
 
     this.update(dt);
     this.draw();
 
-    requestAnimationFrame(this.loop.bind(this));
-  }
-
-  update(dt) {
-    this.paddle.update(dt);
-    this.ball.update(dt, this.paddle);
-  }
-
-  draw() {
-    const ctx = this.ctx;
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, 960, 540);
-
-    // --- DRAW ISOMETRIC TABLE ---
-    ctx.fillStyle = "#2e8b57"; // temporary felt green
-
-    ctx.beginPath();
-    ctx.moveTo(this.table.left, this.table.top * this.table.isoSkew);
-    ctx.lineTo(this.table.right, this.table.top * this.table.isoSkew);
-    ctx.lineTo(this.table.right, this.table.bottom * this.table.isoSkew);
-    ctx.lineTo(this.table.left, this.table.bottom * this.table.isoSkew);
-    ctx.closePath();
-    ctx.fill();
-
-    // Net (for reference)
-    ctx.strokeStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.moveTo(this.table.centerX, this.table.top * this.table.isoSkew);
-    ctx.lineTo(this.table.centerX, this.table.bottom * this.table.isoSkew);
-    ctx.stroke();
-
-    this.ball.draw(ctx);
-    this.paddle.draw(ctx);
-  }
+    requestAnimationFrame(this.loop);
+  };
 }
