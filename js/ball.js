@@ -3,7 +3,7 @@ class Ball {
     this.table = table;
 
     this.radius = 6;
-    this.gravity = -1400;
+    this.gravity = -1600;
 
     this.sprite = new Image();
     this.sprite.src = "assets/sprites/ball.png";
@@ -15,82 +15,92 @@ class Ball {
   }
 
   reset(paddle) {
-    this.x = paddle.x + 40;
+    this.x = paddle.x + 30;
     this.y = paddle.y;
-    this.z = 12;
+    this.z = 8;
 
     this.vx = 0;
     this.vy = 0;
     this.vz = 0;
 
     this.active = false;
-    this.bounceTimer = 0;
+    this.serving = true;
     this.onTable = true;
   }
 
   serve() {
-    if (this.active) return;
-    this.active = true;
-    this.vx = 420;
+    if (!this.serving) return;
+
+    // Vertical toss ONLY
+    this.vz = 520;
+    this.vx = 0;
     this.vy = 0;
-    this.vz = 420;
+
+    this.active = true;
+    this.serving = false;
   }
 
   update(dt, paddle) {
+    // Waiting state (ball held near paddle)
     if (!this.active) {
-      this.bounceTimer += dt * 6;
-      this.z = Math.abs(Math.sin(this.bounceTimer)) * 10;
-      this.x = paddle.x + 40;
+      this.x = paddle.x + 30;
       this.y = paddle.y;
+      this.z = 8;
       return;
     }
 
     // Gravity
     this.vz += this.gravity * dt;
 
-    // Integrate motion
+    // Integrate
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.z += this.vz * dt;
 
-    // --- TABLE COLLISION ---
     const t = this.table;
+
     const onSurface =
       this.x > t.left &&
       this.x < t.right &&
       this.y > t.top &&
       this.y < t.bottom;
 
+    // Table bounce
     if (this.z <= 0 && onSurface) {
       this.z = 0;
-      this.vz *= -0.78;
+      this.vz *= -0.75;
       this.onTable = true;
-    } else if (!onSurface && this.z <= 0) {
+    } else if (this.z <= 0 && !onSurface) {
       // Ball fell off table
+      this.active = false;
+      this.serving = true;
       this.onTable = false;
-      this.z = 0;
-      this.vz = 0;
+      return;
     }
 
-    // --- PADDLE COLLISION ---
+    // Paddle collision
     if (
-      this.onTable &&
       this.x + this.radius > paddle.x - paddle.width / 2 &&
       this.x - this.radius < paddle.x + paddle.width / 2 &&
       this.y + this.radius > paddle.y - paddle.height / 2 &&
       this.y - this.radius < paddle.y + paddle.height / 2 &&
-      this.z < 14
+      this.z < 18 &&
+      this.vz <= 0
     ) {
-      this.vx = Math.abs(this.vx) + Math.abs(paddle.vx) * 0.45;
-      this.vy += paddle.vy * 0.35;
-      this.vz = Math.max(this.vz, 320);
+      // Relative hit position on paddle
+      const offsetY = (this.y - paddle.y) / (paddle.height / 2);
+
+      // Velocity transfer (THIS is where "hard vs soft" comes from)
+      this.vx += paddle.vx * 0.9 + 380;
+      this.vy += paddle.vy * 0.75 + offsetY * 220;
+      this.vz = Math.max(420, Math.abs(paddle.vz || 0) + 380);
     }
   }
 
   draw(ctx) {
-    // Shadow only if ball is over table
+    // Shadow only when over table
     if (this.onTable) {
-      ctx.globalAlpha = 0.45;
+      ctx.globalAlpha = 0.4;
       ctx.drawImage(
         this.shadow,
         this.x - 10,
