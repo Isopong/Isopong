@@ -1,3 +1,5 @@
+// table.js
+
 class Table {
   constructor(canvasWidth, canvasHeight) {
     // Table dimensions in pixels for now (placeholder)
